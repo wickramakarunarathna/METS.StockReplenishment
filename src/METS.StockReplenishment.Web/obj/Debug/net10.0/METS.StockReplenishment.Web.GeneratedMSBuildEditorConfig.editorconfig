@@ -1,0 +1,71 @@
+is_global = true
+build_property.MudDebugAnalyzer = 
+build_property.MudAllowedAttributePattern = 
+build_property.MudAllowedAttributeList = 
+build_property.TargetFramework = net10.0
+build_property.TargetFrameworkIdentifier = .NETCoreApp
+build_property.TargetFrameworkVersion = v10.0
+build_property.TargetPlatformMinVersion = 
+build_property.UsingMicrosoftNETSdkWeb = true
+build_property.ProjectTypeGuids = 
+build_property.InvariantGlobalization = 
+build_property.PlatformNeutralAssembly = 
+build_property.EnforceExtendedAnalyzerRules = 
+build_property.EntryPointFilePath = 
+build_property._SupportedPlatformList = Linux,macOS,Windows
+build_property.RootNamespace = METS.StockReplenishment.Web
+build_property.RootNamespace = METS.StockReplenishment.Web
+build_property.ProjectDir = C:\Users\udaya\Desktop\METS.StockReplenishment\src\METS.StockReplenishment.Web\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 
+build_property.RazorLangVersion = 10.0
+build_property.SupportLocalizedComponentNames = 
+build_property.GenerateRazorMetadataSourceChecksumAttributes = 
+build_property.MSBuildProjectDirectory = C:\Users\udaya\Desktop\METS.StockReplenishment\src\METS.StockReplenishment.Web
+build_property._RazorSourceGeneratorDebug = 
+build_property.EffectiveAnalysisLevelStyle = 10.0
+build_property.EnableCodeStyleSeverity = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/App.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xBcHAucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Layout/EmptyLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcRW1wdHlMYXlvdXQucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Layout/MainLayout.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xMYXlvdXRcTWFpbkxheW91dC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/CreateRequest.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xDcmVhdGVSZXF1ZXN0LnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/EditRequest.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xFZGl0UmVxdWVzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/Login.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xMb2dpbi5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/RequestDetail.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXF1ZXN0RGV0YWlsLnJhem9y
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/RequestList.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xSZXF1ZXN0TGlzdC5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Pages/StockBalance.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xQYWdlc1xTdG9ja0JhbGFuY2UucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/Routes.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xSb3V0ZXMucmF6b3I=
+build_metadata.AdditionalFiles.CssScope = 
+
+[C:/Users/udaya/Desktop/METS.StockReplenishment/src/METS.StockReplenishment.Web/Components/_Imports.razor]
+build_metadata.AdditionalFiles.TargetPath = Q29tcG9uZW50c1xfSW1wb3J0cy5yYXpvcg==
+build_metadata.AdditionalFiles.CssScope = 

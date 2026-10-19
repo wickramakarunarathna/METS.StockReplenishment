@@ -1,0 +1,126 @@
+﻿@page "/"
+@page "/login"
+@using Microsoft.AspNetCore.Components.Authorization
+@layout EmptyLayout
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Login - METS Stock Replenishment</PageTitle>
+
+<div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+    <MudCard Style="width: 100%; max-width: 550px; padding: 32px;">
+        <MudCardContent>
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6" Color="Color.Primary">
+                <strong>METS</strong>
+            </MudText>
+            <MudText Typo="Typo.h6" Align="Align.Center" Class="mb-8">Stock Replenishment Request System</MudText>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-6" Variant="Variant.Filled" Dense="true">
+                    @_errorMessage
+                </MudAlert>
+            }
+
+            <form method="post" action="/Account/login" data-enhance="false">
+                <MudTextField @bind-Value="@_loginModel.Username"
+                              Label="Username"
+                              Variant="Variant.Outlined"
+                              FullWidth="true"
+                              Class="mb-4"
+                              autocomplete="username"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              name="username" />
+
+                
+                <MudTextField @bind-Value="_loginModel.Password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              FullWidth="true"
+                              InputType="@_showPassword"
+                              Class="mb-4"
+                              autocomplete="current-password"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@_hideIcon"
+                              OnAdornmentClick="@TogglePassword"
+                              name="password" />
+
+
+                <button type="submit" class="mud-button-root mud-button mud-button-filled mud-button-filled-primary mud-button-filled-size-large mud-width-full mb-6">
+                    <span class="mud-button-label">Login</span>
+                </button>
+            </form>
+
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="mb-4">
+                <strong>Demo Credentials (for testing purposes only):</strong>
+            </MudText>
+
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; margin-bottom: 16px;">
+                <MudText Typo="Typo.caption" Class="mb-2">
+                    <strong>Worker Role</strong>
+                </MudText>
+                <MudText Typo="Typo.caption">
+                    Username: <code>worker</code>
+                </MudText>
+                <MudText Typo="Typo.caption">
+                    Password: <code>worker123</code>
+                </MudText>
+            </div>
+
+            <div style="background: #f5f5f5; padding: 12px; border-radius: 4px;">
+                <MudText Typo="Typo.caption" Class="mb-2">
+                    <strong>Reviewer Role</strong>
+                </MudText>
+                <MudText Typo="Typo.caption">
+                    Username: <code>reviewer</code>
+                </MudText>
+                <MudText Typo="Typo.caption">
+                    Password: <code>reviewer123</code>
+                </MudText>
+            </div>
+        </MudCardContent>
+    </MudCard>
+</div>
+
+@code {
+    private LoginRequest _loginModel = new();
+    private string _errorMessage = string.Empty;
+    private InputType _showPassword = InputType.Password;
+    private string _hideIcon = Icons.Material.Filled.VisibilityOff;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity?.IsAuthenticated ?? false)
+        {
+            NavigationManager.NavigateTo("/requests", replace: true);
+        }
+
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        if (uri.Query.Contains("error="))
+        {
+            _errorMessage = "An error occurred during login. Please try again.";
+        }
+    }
+
+    private void TogglePassword()
+    {
+        if (_showPassword == InputType.Password)
+        {
+            _showPassword = InputType.Text;
+            _hideIcon = Icons.Material.Filled.Visibility;
+        }
+        else
+        {
+            _showPassword = InputType.Password;
+            _hideIcon = Icons.Material.Filled.VisibilityOff;
+        }
+    }
+
+    public class LoginRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

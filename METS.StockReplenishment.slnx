@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/METS.StockReplenishment.Core/METS.StockReplenishment.Core.csproj" />
+    <Project Path="src/METS.StockReplenishment.Infrastructure/METS.StockReplenishment.Infrastructure.csproj" />
+    <Project Path="src/METS.StockReplenishment.Web/METS.StockReplenishment.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/METS.StockReplenishment.Tests/METS.StockReplenishment.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "dgSpecHash": "hjurq+EMEVU=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\udaya\\Desktop\\METS.StockReplenishment\\src\\METS.StockReplenishment.Web\\METS.StockReplenishment.Web.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.aspnetcore.app.internal.assets\\10.0.13\\microsoft.aspnetcore.app.internal.assets.10.0.13.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.aspnetcore.identity.entityframeworkcore\\10.0.0\\microsoft.aspnetcore.identity.entityframeworkcore.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.data.sqlite.core\\10.0.0\\microsoft.data.sqlite.core.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore\\10.0.0\\microsoft.entityframeworkcore.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.abstractions\\10.0.0\\microsoft.entityframeworkcore.abstractions.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.analyzers\\10.0.0\\microsoft.entityframeworkcore.analyzers.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.inmemory\\10.0.0\\microsoft.entityframeworkcore.inmemory.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.relational\\10.0.0\\microsoft.entityframeworkcore.relational.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.sqlite\\10.0.0\\microsoft.entityframeworkcore.sqlite.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.entityframeworkcore.sqlite.core\\10.0.0\\microsoft.entityframeworkcore.sqlite.core.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\microsoft.extensions.dependencymodel\\10.0.0\\microsoft.extensions.dependencymodel.10.0.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\mudblazor\\8.3.0\\mudblazor.8.3.0.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\sqlitepclraw.bundle_e_sqlite3\\2.1.11\\sqlitepclraw.bundle_e_sqlite3.2.1.11.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\sqlitepclraw.core\\2.1.11\\sqlitepclraw.core.2.1.11.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\sqlitepclraw.lib.e_sqlite3\\2.1.12-pre20260709125052\\sqlitepclraw.lib.e_sqlite3.2.1.12-pre20260709125052.nupkg.sha512",
+    "C:\\Users\\udaya\\.nuget\\packages\\sqlitepclraw.provider.e_sqlite3\\2.1.11\\sqlitepclraw.provider.e_sqlite3.2.1.11.nupkg.sha512"
+  ],
+  "logs": []
+}

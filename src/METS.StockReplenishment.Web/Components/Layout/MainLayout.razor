@@ -1,0 +1,66 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-3">METS - Stock Replenishment Request System</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudText Typo="Typo.body2" Class="mr-4">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /> @context.User.Identity?.Name
+                </MudText>
+                <form method="post" action="/Account/logout" data-enhance="false">
+                    <button type="submit" class="mud-button-root mud-button mud-button-text mud-button-text-inherit mud-button-text-size-medium">
+                        <span class="mud-button-label">
+                            Logout
+                            <MudIcon Icon="@Icons.Material.Filled.Logout" Size="Size.Small" Class="ml-1" />
+                        </span>
+                    </button>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="/login" Variant="Variant.Text" Color="Color.Inherit">
+                    Login
+                </MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+        <AuthorizeView>
+            <Authorized Context="authContext">
+                <MudNavMenu>
+                    <MudNavLink Href="/requests" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.List">Requests List</MudNavLink>
+                    <MudNavLink Href="/stock-balance" Icon="@Icons.Material.Filled.Inventory2">Stock Balance</MudNavLink>
+                    <AuthorizeView Roles="Worker">
+                        <Authorized Context="workerContext">
+                            <MudNavLink Href="/requests/create" Icon="@Icons.Material.Filled.AddCircle">Create Request</MudNavLink>
+                        </Authorized>
+                    </AuthorizeView>
+                </MudNavMenu>
+            </Authorized>
+        </AuthorizeView>
+    </MudDrawer>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+}

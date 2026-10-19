@@ -1,0 +1,817 @@
+@page "/requests/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Replenishment Request @(_request?.RequestNumber ?? $"#{Id}")</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="d-flex justify-center align-center my-8">
+        <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+        <MudText Typo="Typo.h6" Class="ml-3">Loading request details...</MudText>
+    </div>
+}
+else if (_request == null)
+{
+    <MudAlert Severity="Severity.Error" Class="my-4">
+        Request with ID @Id could not be found.
+    </MudAlert>
+    <MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Variant="Variant.Outlined" OnClick="@(() => NavigationManager.NavigateTo("/"))">
+        Back to Requests List
+    </MudButton>
+}
+else
+{
+    <div class="d-flex align-center justify-space-between mb-4">
+        <div class="d-flex align-center">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => NavigationManager.NavigateTo("/"))" aria-label="Back" Class="mr-2" />
+            <div>
+                <MudText Typo="Typo.h5">Request: @_request.RequestNumber</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Created: @_request.CreatedAt.ToLocalTime().ToString("g") | Updated: @_request.UpdatedAt.ToLocalTime().ToString("g")</MudText>
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-center">
+            <MudChip T="string" Color="@GetStatusColor(_request.Status)" Variant="Variant.Filled" Size="Size.Medium">
+                Status: @_request.Status
+            </MudChip>
+            <MudChip T="string" Color="@GetPriorityColor(_request.Priority)" Variant="Variant.Outlined" Size="Size.Medium">
+                Priority: @_request.Priority
+            </MudChip>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="@(() => _errorMessage = null)">
+            @_errorMessage
+        </MudAlert>
+    }
+
+    @if (_isValidating)
+    {
+        <MudCard Elevation="2" Class="mb-4 pa-4" Style="background-color: var(--mud-palette-background-grey);">
+            <div class="d-flex align-center justify-space-between mb-2">
+                <div class="d-flex align-center">
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Info" Class="mr-2" />
+                    <MudText Typo="Typo.subtitle1" Color="Color.Info" Class="font-weight-bold">Stock Validation in Progress...</MudText>
+                </div>
+                <MudText Typo="Typo.caption">Checking stock availability asynchronously</MudText>
+            </div>
+            <MudProgressLinear Color="Color.Info" Indeterminate="true" Class="my-2" />
+            <MudText Typo="Typo.body2">Status: @_request.StockValidationStatus - @(_request.StockValidationMessage ?? "Validating items...")</MudText>
+        </MudCard>
+    }
+
+    <!-- Primary Action Bar based on Status -->
+    <MudPaper Class="pa-3 mb-4 d-flex justify-space-between align-center" Elevation="1">
+        <MudText Typo="Typo.body2" Color="Color.Secondary">
+            Current Stage: <span class="font-weight-bold">@_request.Status</span>
+        </MudText>
+        <div class="d-flex gap-2">
+            @if (string.Equals(_request.Status, "Draft", StringComparison.OrdinalIgnoreCase))
+            {
+                <AuthorizeView Roles="Worker">
+                    <Authorized>
+                        <MudButton Variant="Variant.Outlined" 
+                                   Color="Color.Secondary" 
+                                   StartIcon="@Icons.Material.Filled.Edit"
+                                   Disabled="@_isSubmitting"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{Id}/edit"))">
+                            Edit
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Primary" 
+                                   StartIcon="@Icons.Material.Filled.Send"
+                                   Disabled="@_isSubmitting"
+                                   OnClick="SubmitDraftRequest">
+                            Submit Request
+                        </MudButton>
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else if (string.Equals(_request.Status, "Submitted", StringComparison.OrdinalIgnoreCase))
+            {
+                <AuthorizeView Roles="Reviewer">
+                    <Authorized>
+                        <MudButton Variant="Variant.Outlined" 
+                                   Color="Color.Error" 
+                                   StartIcon="@Icons.Material.Filled.Cancel"
+                                   Disabled="@_isValidating"
+                                   OnClick="OpenRejectDialog">
+                            Reject
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled" 
+                                   Color="Color.Success" 
+                                   StartIcon="@Icons.Material.Filled.CheckCircle"
+                                   Disabled="@_isValidating"
+                                   OnClick="OpenApproveDialog">
+                            Approve
+                        </MudButton>
+                    </Authorized>
+                </AuthorizeView>
+            }
+            else if (string.Equals(_request.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+            {
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           StartIcon="@Icons.Material.Filled.LocalShipping"
+                           OnClick="OpenFulfillDialog">
+                    Fulfill Request
+                </MudButton>
+            }
+            else if (string.Equals(_request.Status, "Fulfilled", StringComparison.OrdinalIgnoreCase))
+            {
+                <MudChip T="string" Color="Color.Dark" Variant="Variant.Text" Icon="@Icons.Material.Filled.DoneAll">
+                    Order Fulfilled
+                </MudChip>
+            }
+            else if (string.Equals(_request.Status, "Rejected", StringComparison.OrdinalIgnoreCase))
+            {
+                <MudChip T="string" Color="Color.Error" Variant="Variant.Text" Icon="@Icons.Material.Filled.Block">
+                    Order Rejected
+                </MudChip>
+            }
+        </div>
+    </MudPaper>
+
+    <MudGrid Spacing="3">
+        <!-- Request Summary Card -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2" Class="h-100">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Request Information</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudSimpleTable Dense="true" Elevation="0">
+                        <tbody>
+                            <tr>
+                                <td style="width: 40%; font-weight: bold;">Request Number</td>
+                                <td>@_request.RequestNumber</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Requested By</td>
+                                <td>@_request.RequestedBy</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Requested At</td>
+                                <td>@_request.RequestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Stock Location</td>
+                                <td>@_request.StockLocationCode - @_request.StockLocationName</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Submitted At</td>
+                                <td>@(_request.SubmittedAt.HasValue ? _request.SubmittedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-")</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Reviewed By</td>
+                                <td>@(_request.ReviewedBy ?? "-")</td>
+                            </tr>
+                            <tr>
+                                <td style="font-weight: bold;">Reviewed At</td>
+                                <td>@(_request.ReviewedAt.HasValue ? _request.ReviewedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-")</td>
+                            </tr>
+                            @if (!string.IsNullOrEmpty(_request.RejectionReason))
+                            {
+                                <tr>
+                                    <td style="font-weight: bold; color: @GetReviewReasonColor(_request.Status);">@GetReviewReasonLabel(_request.Status)</td>
+                                    <td style="color: @GetReviewReasonColor(_request.Status);">@_request.RejectionReason</td>
+                                </tr>
+                            }
+                            <tr>
+                                <td style="font-weight: bold;">Fulfilled At</td>
+                                <td>@(_request.FulfilledAt.HasValue ? _request.FulfilledAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "-")</td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Stock Validation Card -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2" Class="h-100">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <div class="d-flex justify-space-between align-center">
+                            <MudText Typo="Typo.h6">Stock Validation</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.Refresh" 
+                                           Size="Size.Small" 
+                                           aria-label="Refresh Status"
+                                           OnClick="RefreshStockValidationStatus" />
+                        </div>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <div class="d-flex align-center mb-3">
+                        <MudIcon Icon="@GetValidationIcon(_request.StockValidationStatus)" 
+                                 Color="@GetValidationColor(_request.StockValidationStatus)" 
+                                 Size="Size.Large" 
+                                 Class="mr-3" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">
+                                Status: @_request.StockValidationStatus
+                            </MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                @(_request.StockValidationMessage ?? "No validation details available.")
+                            </MudText>
+                        </div>
+                    </div>
+
+                    @if (_isValidating)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-2">
+                            Validating available inventory in background service... Polling status every 2 seconds.
+                        </MudAlert>
+                    }
+                    else if (string.Equals(_request.StockValidationStatus, "Available", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-2">
+                            All requested items are available in inventory for replenishment.
+                        </MudAlert>
+                    }
+                    else if (string.Equals(_request.StockValidationStatus, "PartiallyAvailable", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mt-2">
+                            Some requested items are in short supply. Please inspect quantities before approving.
+                        </MudAlert>
+                    }
+                    else if (string.Equals(_request.StockValidationStatus, "Unavailable", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
+                            Required stock is currently unavailable in the inventory system.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Normal" Variant="Variant.Outlined" Class="mt-2">
+                            Stock check will be executed automatically once this request is submitted.
+                        </MudAlert>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Line Items Section -->
+        <MudItem xs="12">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Line Items (@_request.LineItems.Count)</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudSimpleTable Dense="true" Hover="true" Striped="true" Elevation="0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Article Number</th>
+                                <th>Description</th>
+                                <th style="text-align: right">Requested Qty</th>
+                                <th style="text-align: right">Fulfilled Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (!_request.LineItems.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">No line items in this request.</td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @for (int i = 0; i < _request.LineItems.Count; i++)
+                                {
+                                    var item = _request.LineItems[i];
+                                    <tr>
+                                        <td>@(i + 1)</td>
+                                        <td><span class="font-weight-bold">@item.ArticleNumber</span></td>
+                                        <td>@item.Description</td>
+                                        <td style="text-align: right">@item.RequestedQuantity.ToString("F2")</td>
+                                        <td style="text-align: right">
+                                            @if (item.FulfilledQuantity.HasValue)
+                                            {
+                                                <span class="font-weight-bold" style="color: var(--mud-palette-primary);">
+                                                    @item.FulfilledQuantity.Value.ToString("F2")
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span>-</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+<!-- Inline Dialog: Reject -->
+<MudDialog @bind-Visible="_showRejectDialog" Options="new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true }">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Class="mr-2" />
+            <MudText Typo="Typo.h6">Reject Request</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">Please provide a reason for rejecting request @_request?.RequestNumber. Your logged-in reviewer account will be saved automatically.</MudText>
+        <MudTextField @bind-Value="_rejectReason" 
+                      Label="Rejection Reason" 
+                      Required="true" 
+                      RequiredError="A rejection reason is required" 
+                      Lines="3" 
+                      Class="mb-3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showRejectDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Error" 
+                   Variant="Variant.Filled" 
+                   Disabled="@(string.IsNullOrWhiteSpace(_rejectReason) || _isActionInProgress)"
+                   OnClick="ConfirmReject">
+            Reject Request
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Inline Dialog: Approve -->
+<MudDialog @bind-Visible="_showApproveDialog" Options="new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Small, FullWidth = true }">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Class="mr-2" />
+            <MudText Typo="Typo.h6">Approve Request</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">Confirm approval for request @_request?.RequestNumber. Your logged-in reviewer account will be saved automatically.</MudText>
+        <MudTextField @bind-Value="_approveReason" 
+                      Label="Approval Reason" 
+                      Required="true" 
+                      RequiredError="Approval reason is required" 
+                      Lines="3" 
+                      Class="mb-3" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showApproveDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Success" 
+                   Variant="Variant.Filled" 
+                   Disabled="@(string.IsNullOrWhiteSpace(_approveReason) || _isActionInProgress)"
+                   OnClick="ConfirmApprove">
+            Approve Request
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Inline Dialog: Fulfill -->
+<MudDialog @bind-Visible="_showFulfillDialog" Options="new DialogOptions { CloseOnEscapeKey = true, MaxWidth = MaxWidth.Medium, FullWidth = true }">
+    <TitleContent>
+        <div class="d-flex align-center">
+            <MudIcon Icon="@Icons.Material.Filled.LocalShipping" Color="Color.Primary" Class="mr-2" />
+            <MudText Typo="Typo.h6">Fulfill Request @_request?.RequestNumber</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-3">Enter the fulfilled quantity for each line item below:</MudText>
+        <MudSimpleTable Dense="true" Elevation="0">
+            <thead>
+                <tr>
+                    <th>Article</th>
+                    <th>Description</th>
+                    <th style="text-align: right">Requested</th>
+                    <th style="width: 140px; text-align: right">Fulfilled</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _fulfillItems)
+                {
+                    <tr>
+                        <td><span class="font-weight-bold">@item.ArticleNumber</span></td>
+                        <td>@item.Description</td>
+                        <td style="text-align: right">@item.RequestedQuantity.ToString("F2")</td>
+                        <td>
+                            <MudNumericField @bind-Value="item.FulfilledQuantity" 
+                                             Min="0m" 
+                                             Max="@item.RequestedQuantity" 
+                                             Step="1m" 
+                                             Format="F2" 
+                                             Margin="Margin.Dense" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _showFulfillDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Primary" 
+                   Variant="Variant.Filled" 
+                   Disabled="@_isActionInProgress"
+                   OnClick="ConfirmFulfill">
+            Confirm Fulfillment
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private ReplenishmentRequestDto? _request;
+    private bool _isLoading = true;
+    private bool _isSubmitting = false;
+    private bool _isValidating = false;
+    private bool _isActionInProgress = false;
+    private string? _errorMessage;
+
+    // Reject Dialog
+    private bool _showRejectDialog = false;
+    private string _rejectReason = string.Empty;
+
+    // Approve Dialog
+    private bool _showApproveDialog = false;
+    private string _approveReason = string.Empty;
+
+    // Fulfill Dialog
+    private bool _showFulfillDialog = false;
+    private List<FulfillItemModel> _fulfillItems = new();
+
+    private CancellationTokenSource? _pollingCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRequestAsync();
+    }
+
+    private async Task LoadRequestAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+
+        try
+        {
+            _request = await Http.GetFromJsonAsync<ReplenishmentRequestDto>($"/api/replenishmentrequests/{Id}");
+
+            // If it is in pending or in-progress validation state, begin polling
+            if (_request != null && 
+                (string.Equals(_request.StockValidationStatus, "Pending", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(_request.StockValidationStatus, "InProgress", StringComparison.OrdinalIgnoreCase)))
+            {
+                _isValidating = true;
+                StartValidationPolling();
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            _errorMessage = $"Request not found or server error: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error loading request: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SubmitDraftRequest()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            var response = await Http.PostAsync($"/api/replenishmentrequests/{Id}/submit", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var updated = await response.Content.ReadFromJsonAsync<ReplenishmentRequestDto>();
+                if (updated != null)
+                {
+                    _request = updated;
+                }
+                Snackbar.Add("Request submitted successfully. Running stock validation...", Severity.Info);
+
+                _isValidating = true;
+                StartValidationPolling();
+            }
+            else
+            {
+                var errorObj = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                _errorMessage = errorObj?.Error ?? $"Failed to submit request ({response.StatusCode}).";
+                Snackbar.Add(_errorMessage, Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error submitting request: {ex.Message}";
+            Snackbar.Add(_errorMessage, Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void StartValidationPolling()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts = new CancellationTokenSource();
+        var token = _pollingCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var periodicTimer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+                while (!token.IsCancellationRequested && await periodicTimer.WaitForNextTickAsync(token))
+                {
+                    StockValidationResultDto? statusResult = null;
+                    try
+                    {
+                        statusResult = await Http.GetFromJsonAsync<StockValidationResultDto>($"/api/replenishmentrequests/{Id}/stock-validation", token);
+                    }
+                    catch
+                    {
+                        // Ignore transient network errors during poll
+                    }
+
+                    if (statusResult != null && _request != null)
+                    {
+                        _request.StockValidationStatus = statusResult.Status;
+                        _request.StockValidationMessage = statusResult.Message;
+                        await InvokeAsync(StateHasChanged);
+
+                        if (!string.Equals(statusResult.Status, "Pending", StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(statusResult.Status, "InProgress", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _isValidating = false;
+                            await InvokeAsync(async () =>
+                            {
+                                await LoadRequestAsync();
+                                Snackbar.Add($"Stock validation completed: {statusResult.Status}", GetValidationSeverity(statusResult.Status));
+                                StateHasChanged();
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Polling cancelled
+            }
+            catch (Exception ex)
+            {
+                await InvokeAsync(() =>
+                {
+                    Snackbar.Add($"Stock validation polling stopped: {ex.Message}", Severity.Warning);
+                    _isValidating = false;
+                    StateHasChanged();
+                });
+            }
+        }, token);
+    }
+
+    private async Task RefreshStockValidationStatus()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<StockValidationResultDto>($"/api/replenishmentrequests/{Id}/stock-validation");
+            if (result != null && _request != null)
+            {
+                _request.StockValidationStatus = result.Status;
+                _request.StockValidationMessage = result.Message;
+                Snackbar.Add($"Stock validation status: {result.Status}", Severity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to refresh stock validation: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenRejectDialog()
+    {
+        _rejectReason = string.Empty;
+        _showRejectDialog = true;
+    }
+
+    private async Task ConfirmReject()
+    {
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+            return;
+
+        _isActionInProgress = true;
+        try
+        {
+            var dto = new RejectRequestDto
+            {
+                Reason = _rejectReason.Trim()
+            };
+
+            var response = await Http.PostAsJsonAsync($"/api/replenishmentrequests/{Id}/reject", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                _showRejectDialog = false;
+                Snackbar.Add("Request has been rejected.", Severity.Warning);
+                await LoadRequestAsync();
+            }
+            else
+            {
+                var errorObj = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                Snackbar.Add(errorObj?.Error ?? "Failed to reject request.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error rejecting request: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isActionInProgress = false;
+        }
+    }
+
+    private void OpenApproveDialog()
+    {
+        _approveReason = string.Empty;
+        _showApproveDialog = true;
+    }
+
+    private async Task ConfirmApprove()
+    {
+        if (string.IsNullOrWhiteSpace(_approveReason))
+            return;
+
+        _isActionInProgress = true;
+        try
+        {
+            var dto = new ApproveRequestDto
+            {
+                Reason = _approveReason.Trim()
+            };
+
+            var response = await Http.PostAsJsonAsync($"/api/replenishmentrequests/{Id}/approve", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                _showApproveDialog = false;
+                Snackbar.Add("Request approved successfully.", Severity.Success);
+                await LoadRequestAsync();
+            }
+            else
+            {
+                var errorObj = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                Snackbar.Add(errorObj?.Error ?? "Failed to approve request.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error approving request: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isActionInProgress = false;
+        }
+    }
+
+    private void OpenFulfillDialog()
+    {
+        if (_request == null) return;
+
+        _fulfillItems = _request.LineItems.Select(li => new FulfillItemModel
+        {
+            LineItemId = li.Id,
+            ArticleNumber = li.ArticleNumber,
+            Description = li.Description,
+            RequestedQuantity = li.RequestedQuantity,
+            FulfilledQuantity = li.FulfilledQuantity ?? li.RequestedQuantity
+        }).ToList();
+
+        _showFulfillDialog = true;
+    }
+
+    private async Task ConfirmFulfill()
+    {
+        _isActionInProgress = true;
+        try
+        {
+            var dto = new FulfillRequestDto
+            {
+                Items = _fulfillItems.Select(fi => new FulfillLineItemDto
+                {
+                    LineItemId = fi.LineItemId,
+                    FulfilledQuantity = fi.FulfilledQuantity
+                }).ToList()
+            };
+
+            var response = await Http.PostAsJsonAsync($"/api/replenishmentrequests/{Id}/fulfill", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                _showFulfillDialog = false;
+                Snackbar.Add("Request fulfilled successfully.", Severity.Success);
+                await LoadRequestAsync();
+            }
+            else
+            {
+                var errorObj = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+                Snackbar.Add(errorObj?.Error ?? "Failed to fulfill request.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error fulfilling request: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isActionInProgress = false;
+        }
+    }
+
+    private Color GetStatusColor(string status) => status?.ToLowerInvariant() switch
+    {
+        "draft" => Color.Default,
+        "submitted" => Color.Info,
+        "approved" => Color.Success,
+        "rejected" => Color.Error,
+        "fulfilled" => Color.Dark,
+        _ => Color.Default
+    };
+
+    private Color GetPriorityColor(string priority) => priority?.ToLowerInvariant() switch
+    {
+        "low" => Color.Default,
+        "normal" => Color.Info,
+        "urgent" => Color.Error,
+        _ => Color.Default
+    };
+
+    private Color GetValidationColor(string status) => status?.ToLowerInvariant() switch
+    {
+        "available" => Color.Success,
+        "partiallyavailable" => Color.Warning,
+        "unavailable" => Color.Error,
+        "pending" => Color.Info,
+        "inprogress" => Color.Info,
+        _ => Color.Default
+    };
+
+    private string GetValidationIcon(string status) => status?.ToLowerInvariant() switch
+    {
+        "available" => Icons.Material.Filled.CheckCircle,
+        "partiallyavailable" => Icons.Material.Filled.WarningAmber,
+        "unavailable" => Icons.Material.Filled.ErrorOutline,
+        "pending" => Icons.Material.Filled.HourglassEmpty,
+        "inprogress" => Icons.Material.Filled.Sync,
+        _ => Icons.Material.Filled.HelpOutline
+    };
+
+    private static string GetReviewReasonLabel(string status) =>
+        string.Equals(status, "Rejected", StringComparison.OrdinalIgnoreCase)
+            ? "Rejection Reason"
+            : "Review Reason";
+
+    private static string GetReviewReasonColor(string status) =>
+        string.Equals(status, "Rejected", StringComparison.OrdinalIgnoreCase)
+            ? "var(--mud-palette-error)"
+            : "var(--mud-palette-info)";
+
+    private Severity GetValidationSeverity(string status) => status?.ToLowerInvariant() switch
+    {
+        "available" => Severity.Success,
+        "partiallyavailable" => Severity.Warning,
+        "unavailable" => Severity.Error,
+        _ => Severity.Info
+    };
+
+    public void Dispose()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
+    }
+
+    private class FulfillItemModel
+    {
+        public int LineItemId { get; set; }
+        public string ArticleNumber { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal RequestedQuantity { get; set; }
+        public decimal FulfilledQuantity { get; set; }
+    }
+
+    private class ErrorResponse
+    {
+        public string? Error { get; set; }
+    }
+}

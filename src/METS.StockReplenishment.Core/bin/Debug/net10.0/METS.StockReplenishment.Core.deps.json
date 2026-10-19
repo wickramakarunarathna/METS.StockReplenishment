@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "METS.StockReplenishment.Core/1.0.0": {
+        "runtime": {
+          "METS.StockReplenishment.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "METS.StockReplenishment.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

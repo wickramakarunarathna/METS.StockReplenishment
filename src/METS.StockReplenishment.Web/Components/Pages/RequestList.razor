@@ -1,0 +1,494 @@
+@page "/requests"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Components.Authorization
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Stock Replenishment Requests</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Stock Replenishment Requests</MudText>
+
+<MudGrid Spacing="2" Class="mb-4">
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Total</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Primary">@_totalCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Draft</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Default">@_draftCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Submitted</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Info">@_submittedCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Approved</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Success">@_approvedCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Rejected</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Error">@_rejectedCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="2">
+        <MudCard Elevation="1">
+            <MudCardContent>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Fulfilled</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Dark">@_fulfilledCount</MudText>
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+<MudCard Elevation="2" Class="mb-4">
+    <MudCardContent>
+        <MudGrid Spacing="2" Class="align-center">
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_searchTerm" 
+                              Label="Search & Filter" 
+                              Placeholder="Search number, user, description..." 
+                              Adornment="Adornment.Start" 
+                              AdornmentIcon="@Icons.Material.Filled.Search" 
+                              Clearable="true" 
+                              Immediate="false"
+                              OnClearButtonClick="@OnSearchCleared"
+                              OnKeyDown="@OnSearchKeyDown" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="RequestStatus?" 
+                           Label="Status" 
+                           Value="_selectedStatus" 
+                           ValueChanged="OnStatusChanged" 
+                           Clearable="true"
+                           OnClearButtonClick="OnStatusCleared">
+                    <MudSelectItem T="RequestStatus?" Value="@((RequestStatus?)null)">All Statuses</MudSelectItem>
+                    @foreach (var status in Enum.GetValues<RequestStatus>())
+                    {
+                        <MudSelectItem T="RequestStatus?" Value="@((RequestStatus?)status)">@status</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="RequestPriority?" 
+                           Label="Priority" 
+                           Value="_selectedPriority" 
+                           ValueChanged="OnPriorityChanged" 
+                           Clearable="true"
+                           OnClearButtonClick="OnPriorityCleared">
+                    <MudSelectItem T="RequestPriority?" Value="@((RequestPriority?)null)">All Priorities</MudSelectItem>
+                    @foreach (var priority in Enum.GetValues<RequestPriority>())
+                    {
+                        <MudSelectItem T="RequestPriority?" Value="@((RequestPriority?)priority)">@priority</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudSelect T="string" 
+                           Label="Location" 
+                           Value="_selectedLocation" 
+                           ValueChanged="OnLocationChanged" 
+                           Clearable="true"
+                           OnClearButtonClick="OnLocationCleared">
+                    <MudSelectItem T="string" Value="@(null)">All Locations</MudSelectItem>
+                    @foreach (var loc in _locations)
+                    {
+                        <MudSelectItem T="string" Value="@loc">@loc</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="string"
+                           Label="Article"
+                           Value="_selectedArticle"
+                           ValueChanged="OnArticleChanged"
+                           Clearable="true"
+                           OnClearButtonClick="OnArticleCleared">
+                    <MudSelectItem T="string" Value="@(null)">All Articles</MudSelectItem>
+                    @foreach (var article in _articles)
+                    {
+                        <MudSelectItem T="string" Value="@article.ArticleNumber">@article.ArticleNumber - @article.Description</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" Class="d-flex justify-end gap-2 mt-2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Secondary"
+                           StartIcon="@Icons.Material.Filled.FilterAltOff"
+                           OnClick="ResetFilters">
+                    Reset
+                </MudButton>
+
+                <AuthorizeView Roles="Worker">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@(() => NavigationManager.NavigateTo("/requests/create"))">
+                        Create Request
+                    </MudButton>
+                </AuthorizeView>
+            </MudItem>
+        </MudGrid>
+    </MudCardContent>
+</MudCard>
+
+<MudTable T="ReplenishmentRequestDto" 
+          ServerData="ServerReload" 
+          @ref="_table" 
+          Dense="true" 
+          Hover="true" 
+          Bordered="false" 
+          Striped="true" 
+          Elevation="2"
+          RowClass="cursor-pointer"
+          OnRowClick="OnRowClick">
+    <HeaderContent>
+        <MudTh>Request #</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Priority</MudTh>
+        <MudTh>Location</MudTh>
+        <MudTh>Requested By</MudTh>
+        <MudTh>Requested Date</MudTh>
+        <MudTh Style="text-align: right">Actions</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Request #">
+            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.RequestNumber</MudText>
+        </MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small" Variant="Variant.Filled">
+                @context.Status
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Priority">
+            <MudChip T="string" Color="@GetPriorityColor(context.Priority)" Size="Size.Small" Variant="Variant.Outlined">
+                @context.Priority
+            </MudChip>
+        </MudTd>
+        <MudTd DataLabel="Location">
+            <MudText Typo="Typo.body2">@context.StockLocationCode - @context.StockLocationName</MudText>
+        </MudTd>
+        <MudTd DataLabel="Requested By">
+            <MudText Typo="Typo.body2">@context.RequestedBy</MudText>
+        </MudTd>
+        <MudTd DataLabel="Requested Date">
+            <MudText Typo="Typo.body2">@context.RequestedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</MudText>
+        </MudTd>
+        <MudTd DataLabel="Actions" Style="text-align: right">
+            <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                           Color="Color.Primary" 
+                           Size="Size.Small" 
+                           aria-label="View Details"
+                           title="View this request details"
+                           OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}"))" />
+            <AuthorizeView Roles="Worker" Context="authContext">
+                @if (string.Equals(context.Status, "Draft", StringComparison.OrdinalIgnoreCase))
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" 
+                                   Color="Color.Secondary" 
+                                   Size="Size.Small" 
+                                   aria-label="Edit Request"
+                                   title="Edit this request details"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}/edit"))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Send" 
+                                   Color="Color.Info" 
+                                   Size="Size.Small" 
+                                   aria-label="Submit Request"
+                                   title="Submit this request for approval"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}"))" />
+                }
+            </AuthorizeView>
+            <AuthorizeView Roles="Reviewer" Context="authContext">
+                @if (string.Equals(context.Status, "Submitted", StringComparison.OrdinalIgnoreCase))
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" 
+                                   Color="Color.Success" 
+                                   Size="Size.Small" 
+                                   aria-label="Approve Request"
+                                   title="Check and Approve this request"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}"))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Cancel" 
+                                   Color="Color.Error" 
+                                   Size="Size.Small" 
+                                   aria-label="Reject Request"
+                                   title="Check and Reject this request"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}"))" />
+                }
+                @if (string.Equals(context.Status, "Approved", StringComparison.OrdinalIgnoreCase))
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.LocalShipping" 
+                                   Color="Color.Warning" 
+                                   Size="Size.Small" 
+                                   aria-label="Fulfill Request"
+                                   title="Mark request as fulfilled"
+                                   OnClick="@(() => NavigationManager.NavigateTo($"/requests/{context.Id}"))" />
+                }
+            </AuthorizeView>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="py-4">No replenishment requests found matching the criteria.</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText Typo="Typo.body2" Align="Align.Center" Class="py-4">Loading requests...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager RowsPerPageString="Rows per page:" PageSizeOptions="new int[] { 5, 10, 20, 50 }" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<ReplenishmentRequestDto> _table = null!;
+    private string? _searchTerm;
+    private RequestStatus? _selectedStatus;
+    private RequestPriority? _selectedPriority;
+    private string? _selectedLocation;
+    private string? _selectedArticle;
+    private List<string> _locations = new();
+    private List<ArticleOptionDto> _articles = new();
+    private int _totalCount;
+    private int _draftCount;
+    private int _submittedCount;
+    private int _approvedCount;
+    private int _rejectedCount;
+    private int _fulfilledCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadDashboardCountsAsync();
+
+            var locations = await Http.GetFromJsonAsync<List<string>>("/api/replenishmentrequests/locations");
+            if (locations != null)
+            {
+                _locations = locations;
+            }
+
+            var articles = await Http.GetFromJsonAsync<List<ArticleOptionDto>>("/api/replenishmentrequests/article-options");
+            if (articles != null)
+            {
+                _articles = articles;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load filters: {ex.Message}", Severity.Warning);
+        }
+    }
+
+    private async Task LoadDashboardCountsAsync()
+    {
+        const int pageSize = 50;
+        var page = 1;
+        var allItems = new List<ReplenishmentRequestDto>();
+
+        while (true)
+        {
+            var url = $"/api/replenishmentrequests?page={page}&pageSize={pageSize}";
+            var result = await Http.GetFromJsonAsync<PagedResultDto<ReplenishmentRequestDto>>(url);
+
+            if (result == null)
+            {
+                break;
+            }
+
+            allItems.AddRange(result.Items);
+            _totalCount = result.TotalCount;
+
+            if (allItems.Count >= result.TotalCount)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        _draftCount = allItems.Count(x => string.Equals(x.Status, "Draft", StringComparison.OrdinalIgnoreCase));
+        _submittedCount = allItems.Count(x => string.Equals(x.Status, "Submitted", StringComparison.OrdinalIgnoreCase));
+        _approvedCount = allItems.Count(x => string.Equals(x.Status, "Approved", StringComparison.OrdinalIgnoreCase));
+        _rejectedCount = allItems.Count(x => string.Equals(x.Status, "Rejected", StringComparison.OrdinalIgnoreCase));
+        _fulfilledCount = allItems.Count(x => string.Equals(x.Status, "Fulfilled", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<TableData<ReplenishmentRequestDto>> ServerReload(TableState state, CancellationToken token)
+    {
+        try
+        {
+            var queryParams = new List<string>
+            {
+                $"page={state.Page + 1}",
+                $"pageSize={state.PageSize}"
+            };
+
+            if (_selectedStatus.HasValue)
+            {
+                queryParams.Add($"status={_selectedStatus.Value}");
+            }
+
+            if (_selectedPriority.HasValue)
+            {
+                queryParams.Add($"priority={_selectedPriority.Value}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedLocation))
+            {
+                queryParams.Add($"stockLocationCode={Uri.EscapeDataString(_selectedLocation)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(_selectedArticle))
+            {
+                queryParams.Add($"articleNumber={Uri.EscapeDataString(_selectedArticle)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(_searchTerm))
+            {
+                queryParams.Add($"searchTerm={Uri.EscapeDataString(_searchTerm)}");
+            }
+
+            var url = $"/api/replenishmentrequests?{string.Join("&", queryParams)}";
+            var result = await Http.GetFromJsonAsync<PagedResultDto<ReplenishmentRequestDto>>(url, token);
+
+            if (result != null)
+            {
+                return new TableData<ReplenishmentRequestDto>()
+                {
+                    TotalItems = result.TotalCount,
+                    Items = result.Items
+                };
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Request was cancelled, ignore
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading requests: {ex.Message}", Severity.Error);
+        }
+
+        return new TableData<ReplenishmentRequestDto>()
+        {
+            TotalItems = 0,
+            Items = new List<ReplenishmentRequestDto>()
+        };
+    }
+
+    private void OnRowClick(TableRowClickEventArgs<ReplenishmentRequestDto> args)
+    {
+        if (args.Item != null)
+        {
+            NavigationManager.NavigateTo($"/requests/{args.Item.Id}");
+        }
+    }
+
+    private async Task OnStatusChanged(RequestStatus? status)
+    {
+        _selectedStatus = status;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnStatusCleared()
+    {
+        _selectedStatus = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnPriorityChanged(RequestPriority? priority)
+    {
+        _selectedPriority = priority;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnPriorityCleared()
+    {
+        _selectedPriority = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnLocationChanged(string? location)
+    {
+        _selectedLocation = location;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnLocationCleared()
+    {
+        _selectedLocation = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnArticleChanged(string? articleNumber)
+    {
+        _selectedArticle = articleNumber;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnArticleCleared()
+    {
+        _selectedArticle = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnSearchCleared()
+    {
+        _searchTerm = null;
+        await _table.ReloadServerData();
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await _table.ReloadServerData();
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        _searchTerm = null;
+        _selectedStatus = null;
+        _selectedPriority = null;
+        _selectedLocation = null;
+        _selectedArticle = null;
+        await _table.ReloadServerData();
+    }
+
+    private Color GetStatusColor(string status) => status?.ToLowerInvariant() switch
+    {
+        "draft" => Color.Default,
+        "submitted" => Color.Info,
+        "approved" => Color.Success,
+        "rejected" => Color.Error,
+        "fulfilled" => Color.Dark,
+        _ => Color.Default
+    };
+
+    private Color GetPriorityColor(string priority) => priority?.ToLowerInvariant() switch
+    {
+        "low" => Color.Default,
+        "normal" => Color.Info,
+        "urgent" => Color.Error,
+        _ => Color.Default
+    };
+}

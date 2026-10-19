@@ -1,0 +1,98 @@
+@page "/stock-balance"
+@using Microsoft.AspNetCore.Authorization
+@using METS.StockReplenishment.Core.Interfaces
+@attribute [Authorize]
+@inject IReplenishmentRequestService ReplenishmentRequestService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>Stock Balance</PageTitle>
+
+<div class="d-flex justify-space-between align-center mb-4">
+	<MudText Typo="Typo.h5">Stock Balance</MudText>
+	<MudSwitch T="bool" @bind-Value="_showLowStockOnly" Color="Color.Warning" Label="Show low stock only" />
+</div>
+
+<MudTable Items="FilteredBalances" Dense="true" Striped="true" Hover="true" Elevation="2" Loading="_isLoading" RowClassFunc="GetRowClass">
+	<HeaderContent>
+		<MudTh>Article</MudTh>
+		<MudTh>Description</MudTh>
+		<MudTh Style="text-align:right;">Balance</MudTh>
+		<MudTh Style="text-align:right;">Low Stock Threshold</MudTh>
+		<MudTh>Status</MudTh>
+		<MudTh Style="text-align:center;">Action</MudTh>
+	</HeaderContent>
+	<RowTemplate Context="item">
+		<MudTd DataLabel="Article">@item.ArticleNumber</MudTd>
+		<MudTd DataLabel="Description">@item.Description</MudTd>
+		<MudTd DataLabel="Balance" Style="text-align:right;">@item.CurrentBalance</MudTd>
+		<MudTd DataLabel="Low Stock Threshold" Style="text-align:right;">@item.LowStockThreshold</MudTd>
+		<MudTd DataLabel="Status">
+			@if (item.IsLowStock)
+			{
+				<MudChip T="string" Color="Color.Error" Variant="Variant.Filled" Size="Size.Small">Low</MudChip>
+			}
+			else
+			{
+				<MudChip T="string" Color="Color.Success" Variant="Variant.Outlined" Size="Size.Small">Healthy</MudChip>
+			}
+		</MudTd>
+		<MudTd DataLabel="Action" Style="text-align:center;">
+			<AuthorizeView Roles="Worker">
+				<Authorized>
+					@if (item.IsLowStock)
+					{
+						<MudButton Variant="Variant.Filled"
+								   Color="Color.Primary"
+								   Size="Size.Small"
+								   StartIcon="@Icons.Material.Filled.AddCircle"
+								   OnClick="@(() => CreateRequestForItem(item))">
+							Create Request
+						</MudButton>
+					}
+				</Authorized>
+			</AuthorizeView>
+		</MudTd>
+	</RowTemplate>
+	<NoRecordsContent>
+		<MudText Typo="Typo.body2" Class="pa-4">No stock balance records found.</MudText>
+	</NoRecordsContent>
+</MudTable>
+
+@code {
+	private List<StockBalanceDto> _stockBalances = new();
+	private bool _isLoading;
+	private bool _showLowStockOnly;
+
+	private IEnumerable<StockBalanceDto> FilteredBalances =>
+		_showLowStockOnly ? _stockBalances.Where(x => x.IsLowStock) : _stockBalances;
+
+	protected override async Task OnInitializedAsync()
+	{
+		_isLoading = true;
+		try
+		{
+			_stockBalances = await ReplenishmentRequestService.GetStockBalancesAsync();
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Failed to load stock balances: {ex.Message}", Severity.Error);
+		}
+		finally
+		{
+			_isLoading = false;
+		}
+	}
+
+	private static string GetRowClass(StockBalanceDto item, int rowNumber)
+	{
+		return item.IsLowStock ? "mud-theme-error text-white" : string.Empty;
+	}
+
+	private void CreateRequestForItem(StockBalanceDto item)
+	{
+		var suggestedQty = Math.Max(1m, item.LowStockThreshold - item.CurrentBalance + 50m);
+		var target = $"/requests/create?articleNumber={Uri.EscapeDataString(item.ArticleNumber)}&description={Uri.EscapeDataString(item.Description)}&quantity={suggestedQty}";
+		NavigationManager.NavigateTo(target);
+	}
+}

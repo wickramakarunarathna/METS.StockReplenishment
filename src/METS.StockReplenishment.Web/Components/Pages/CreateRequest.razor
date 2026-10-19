@@ -1,0 +1,398 @@
+@page "/requests/create"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using METS.StockReplenishment.Core.Exceptions
+@using METS.StockReplenishment.Core.Interfaces
+@using System.Globalization
+@attribute [Authorize(Roles = "Worker")]
+@inject IReplenishmentRequestService ReplenishmentRequestService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Create Replenishment Request</PageTitle>
+
+<div class="d-flex align-center mb-4">
+	<MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="@(() => NavigationManager.NavigateTo("/"))" aria-label="Back" Class="mr-2" />
+	<MudText Typo="Typo.h5">Create Replenishment Request</MudText>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+	<MudAlert Severity="Severity.Error" Class="mb-4" ShowCloseIcon="true" CloseIconClicked="@(() => _errorMessage = null)">
+		@_errorMessage
+	</MudAlert>
+}
+
+<EditForm Model="@_model" OnValidSubmit="HandleSubmit">
+	<DataAnnotationsValidator />
+
+	<MudGrid Spacing="3">
+		<!-- Request Details Card -->
+		<MudItem xs="12">
+			<MudCard Elevation="2">
+				<MudCardHeader>
+					<CardHeaderContent>
+						<MudText Typo="Typo.h6">Request Details</MudText>
+					</CardHeaderContent>
+				</MudCardHeader>
+				<MudCardContent>
+					<MudGrid Spacing="2">
+						<MudItem xs="12" sm="6" md="9">
+							<MudAutocomplete T="StockLocationOptionDto"
+											 Label="Stock Location"
+											 Value="_selectedLocation"
+											 ValueChanged="OnLocationChanged"
+											 SearchFunc="SearchLocations"
+											 ToStringFunc="LocationToString"
+											 CoerceText="true"
+											 Clearable="true"
+											 ResetValueOnEmptyText="true"
+											 Required="true"
+											 RequiredError="Stock location is required"
+											 Placeholder="Select or type a stock location" />
+						</MudItem>
+						<MudItem xs="12" sm="6" md="3">
+							<MudSelect T="RequestPriority"
+									   @bind-Value="_model.Priority"
+									   For="@(() => _model.Priority)"
+									   Label="Priority">
+								@foreach (var priority in Enum.GetValues<RequestPriority>())
+								{
+									<MudSelectItem Value="@priority">@priority</MudSelectItem>
+								}
+							</MudSelect>
+						</MudItem>
+					</MudGrid>
+				</MudCardContent>
+			</MudCard>
+		</MudItem>
+
+		<!-- Line Items Card -->
+		<MudItem xs="12">
+			<MudCard Elevation="2">
+				<MudCardHeader>
+					<CardHeaderContent>
+						<div class="d-flex justify-space-between align-center">
+							<MudText Typo="Typo.h6">Line Items</MudText>
+						</div>
+					</CardHeaderContent>
+				</MudCardHeader>
+				<MudCardContent>
+					@if (!_model.LineItems.Any())
+					{
+						<MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+							Please add at least one line item to this request.
+						</MudAlert>
+					}
+					else
+					{
+						<MudTable Items="_model.LineItems" Dense="true" Elevation="0" Striped="true">
+							<HeaderContent>
+								<MudTh Style="width: 50px;">#</MudTh>
+								<MudTh>Article</MudTh>
+								<MudTh Style="width: 180px; text-align: right">Requested Quantity</MudTh>
+								<MudTh Style="width: 80px; text-align: center">Action</MudTh>
+							</HeaderContent>
+							<RowTemplate Context="lineItem">
+								<MudTd DataLabel="#">@(_model.LineItems.IndexOf(lineItem) + 1)</MudTd>
+								<MudTd DataLabel="Article">
+									<MudAutocomplete T="string"
+													 Value="lineItem.ArticleNumber"
+													 ValueChanged="@(value => OnArticleChanged(lineItem, value))"
+													 SearchFunc="@((value, token) => SearchArticles(value, token, lineItem))"
+													 ToStringFunc="ArticleToString"
+													 CoerceText="true"
+													 Clearable="true"
+													 ResetValueOnEmptyText="true"
+													 Required="true"
+													 RequiredError="Article is required"
+													 Placeholder="Select or type an article"
+													 Margin="Margin.Dense" />
+								</MudTd>
+								<MudTd DataLabel="Requested Quantity" Style="text-align: right">
+									<MudNumericField @bind-Value="lineItem.RequestedQuantity"
+													 Min="0.01m"
+													 Step="1m"
+													 Format="F2"
+													 Margin="Margin.Dense" />
+								</MudTd>
+								<MudTd DataLabel="Action" Style="text-align: center">
+									<MudIconButton Icon="@Icons.Material.Filled.Delete"
+												   Color="Color.Error"
+												   Size="Size.Small"
+												   OnClick="@(() => RemoveLineItem(lineItem))"
+												   aria-label="Remove Item" />
+								</MudTd>
+							</RowTemplate>
+						</MudTable>
+					}
+				</MudCardContent>
+				<MudCardActions Class="d-flex justify-end px-4 pt-0">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Add"
+							   Size="Size.Small"
+							   OnClick="AddLineItem">
+						Add Item
+					</MudButton>
+				</MudCardActions>
+
+				<MudCardActions Class="d-flex justify-space-between pa-4">
+					<MudButton Variant="Variant.Outlined"
+							   Color="Color.Secondary"
+							   OnClick="@(() => NavigationManager.NavigateTo("/"))">
+						Cancel
+					</MudButton>
+					<MudButton Variant="Variant.Filled"
+							   Color="Color.Primary"
+							   StartIcon="@Icons.Material.Filled.Save"
+							   Disabled="@_isSaving"
+							   ButtonType="ButtonType.Submit">
+						@if (_isSaving)
+						{
+							<MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+							<span>Creating...</span>
+						}
+						else
+						{
+							<span>Create Request</span>
+						}
+					</MudButton>
+				</MudCardActions>
+			</MudCard>
+		</MudItem>
+	</MudGrid>
+</EditForm>
+
+@code {
+	private CreateReplenishmentRequestDto _model = new();
+	private bool _isSaving = false;
+	private string? _errorMessage;
+	private StockLocationOptionDto? _selectedLocation;
+	private List<StockLocationOptionDto> _stockLocations = new();
+	private List<ArticleOptionDto> _articleOptions = new();
+
+	[SupplyParameterFromQuery(Name = "articleNumber")]
+	public string? PrefillArticleNumber { get; set; }
+
+	[SupplyParameterFromQuery(Name = "description")]
+	public string? PrefillDescription { get; set; }
+
+	[SupplyParameterFromQuery(Name = "quantity")]
+	public string? PrefillQuantity { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+		_model.RequestedBy = authState.User.Identity?.Name ?? string.Empty;
+
+		// Add default line item
+		AddLineItem();
+
+		try
+		{
+			_stockLocations = await ReplenishmentRequestService.GetDistinctLocationOptionsAsync();
+			_articleOptions = await ReplenishmentRequestService.GetDistinctArticleOptionsAsync();
+			ApplyPrefillLineItem();
+		}
+		catch (Exception ex)
+		{
+			Snackbar.Add($"Failed to load dropdown options: {ex.Message}", Severity.Warning);
+		}
+	}
+
+	private Task OnLocationChanged(StockLocationOptionDto? location)
+	{
+		_selectedLocation = location;
+		_model.StockLocationCode = location?.Code ?? string.Empty;
+		_model.StockLocationName = location?.Name ?? string.Empty;
+
+		return Task.CompletedTask;
+	}
+
+	private void ApplyPrefillLineItem()
+	{
+		if (_model.LineItems.Count == 0 || string.IsNullOrWhiteSpace(PrefillArticleNumber))
+		{
+			return;
+		}
+
+		var firstItem = _model.LineItems[0];
+		var articleNumber = PrefillArticleNumber.Trim();
+
+		firstItem.ArticleNumber = articleNumber;
+
+		var matchedArticle = _articleOptions.FirstOrDefault(a =>
+			string.Equals(a.ArticleNumber, articleNumber, StringComparison.OrdinalIgnoreCase));
+		firstItem.Description = matchedArticle?.Description
+			?? PrefillDescription?.Trim()
+			?? string.Empty;
+
+		if (decimal.TryParse(PrefillQuantity, NumberStyles.Number, CultureInfo.InvariantCulture, out var qty) && qty > 0)
+		{
+			firstItem.RequestedQuantity = qty;
+		}
+	}
+
+	private void AddLineItem()
+	{
+		if (_articleOptions.Any() && _model.LineItems.Count(li => !string.IsNullOrWhiteSpace(li.ArticleNumber)) >= _articleOptions.Count)
+		{
+			Snackbar.Add("All available articles are already selected.", Severity.Warning);
+			return;
+		}
+
+		_model.LineItems.Add(new CreateLineItemDto
+		{
+			ArticleNumber = string.Empty,
+			Description = string.Empty,
+			RequestedQuantity = 1.00m
+		});
+	}
+
+	private void OnArticleChanged(CreateLineItemDto lineItem, string? articleNumber)
+	{
+		var normalizedArticleNumber = articleNumber?.Trim() ?? string.Empty;
+
+		if (!string.IsNullOrWhiteSpace(normalizedArticleNumber) &&
+			_model.LineItems.Any(li => !ReferenceEquals(li, lineItem) &&
+				string.Equals(li.ArticleNumber, normalizedArticleNumber, StringComparison.OrdinalIgnoreCase)))
+		{
+			Snackbar.Add($"Article '{normalizedArticleNumber}' is already selected in another line item.", Severity.Warning);
+			return;
+		}
+
+		lineItem.ArticleNumber = normalizedArticleNumber;
+
+		var selectedArticle = _articleOptions.FirstOrDefault(a =>
+			string.Equals(a.ArticleNumber, normalizedArticleNumber, StringComparison.OrdinalIgnoreCase));
+		lineItem.Description = selectedArticle?.Description ?? string.Empty;
+	}
+
+	private Task<IEnumerable<StockLocationOptionDto>> SearchLocations(string value, CancellationToken token)
+	{
+		IEnumerable<StockLocationOptionDto> results = _stockLocations;
+
+		if (!string.IsNullOrWhiteSpace(value))
+		{
+			results = results.Where(l =>
+				l.Code.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+				l.Name.Contains(value, StringComparison.OrdinalIgnoreCase));
+		}
+
+		return Task.FromResult(results);
+	}
+
+	private Task<IEnumerable<string>> SearchArticles(string value, CancellationToken token, CreateLineItemDto currentLineItem)
+	{
+		IEnumerable<ArticleOptionDto> results = _articleOptions;
+		var alreadySelected = _model.LineItems
+			.Where(li => !ReferenceEquals(li, currentLineItem) && !string.IsNullOrWhiteSpace(li.ArticleNumber))
+			.Select(li => li.ArticleNumber)
+			.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+		results = results.Where(a => !alreadySelected.Contains(a.ArticleNumber));
+
+		if (!string.IsNullOrWhiteSpace(value))
+		{
+			results = results.Where(a =>
+				a.ArticleNumber.Contains(value, StringComparison.OrdinalIgnoreCase) ||
+				a.Description.Contains(value, StringComparison.OrdinalIgnoreCase));
+		}
+
+		return Task.FromResult(results.Select(a => a.ArticleNumber));
+	}
+
+	private static string LocationToString(StockLocationOptionDto option)
+		=> option is null ? string.Empty : $"{option.Code} - {option.Name}";
+
+	private string ArticleToString(string articleNumber)
+	{
+		var selectedArticle = _articleOptions.FirstOrDefault(a =>
+			string.Equals(a.ArticleNumber, articleNumber, StringComparison.OrdinalIgnoreCase));
+
+		return selectedArticle is null ? articleNumber : $"{selectedArticle.ArticleNumber} - {selectedArticle.Description}";
+	}
+
+	private void RemoveLineItem(CreateLineItemDto item)
+	{
+		if (_model.LineItems.Count > 1)
+		{
+			_model.LineItems.Remove(item);
+		}
+		else
+		{
+			Snackbar.Add("A request must contain at least one line item.", Severity.Warning);
+		}
+	}
+
+	private async Task HandleSubmit()
+	{
+		_errorMessage = null;
+
+		// Custom validation
+		if (string.IsNullOrWhiteSpace(_model.StockLocationCode) || string.IsNullOrWhiteSpace(_model.StockLocationName))
+		{
+			_errorMessage = "Stock location is required.";
+			return;
+		}
+
+		if (!_model.LineItems.Any())
+		{
+			_errorMessage = "At least one line item is required.";
+			return;
+		}
+
+		for (int i = 0; i < _model.LineItems.Count; i++)
+		{
+			var item = _model.LineItems[i];
+			if (string.IsNullOrWhiteSpace(item.ArticleNumber))
+			{
+				_errorMessage = $"Line item #{i + 1}: Article Number is required.";
+				return;
+			}
+			if (string.IsNullOrWhiteSpace(item.Description))
+			{
+				_errorMessage = $"Line item #{i + 1}: Description is required.";
+				return;
+			}
+			if (item.RequestedQuantity <= 0)
+			{
+				_errorMessage = $"Line item #{i + 1}: Requested quantity must be greater than zero.";
+				return;
+			}
+
+			if (_model.LineItems
+				.Where((_, idx) => idx != i)
+				.Any(li => string.Equals(li.ArticleNumber, item.ArticleNumber, StringComparison.OrdinalIgnoreCase)))
+			{
+				_errorMessage = $"Line item #{i + 1}: Article is already selected in another line item.";
+				return;
+			}
+		}
+
+		_isSaving = true;
+
+		try
+		{
+			var created = await ReplenishmentRequestService.CreateAsync(_model);
+			Snackbar.Add($"Request #{created.RequestNumber} created successfully!", Severity.Success);
+			NavigationManager.NavigateTo($"/requests/{created.Id}");
+		}
+		catch (BusinessRuleException ex)
+		{
+			_errorMessage = ex.Message;
+			Snackbar.Add(_errorMessage, Severity.Error);
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"An unexpected error occurred: {ex.Message}";
+			Snackbar.Add(_errorMessage, Severity.Error);
+		}
+		finally
+		{
+			_isSaving = false;
+		}
+	}
+}
